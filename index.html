@@ -1700,8 +1700,8 @@ let GMAIL_TOKEN = '';
 
     <div class="p-6 space-y-4">
 
-      <!-- EGP Quick-fill (only on new bids) -->
-      <div x-show="!modal.id" class="rounded-xl p-4" style="background:#f0f9ff;border:1px solid #bae6fd;">
+      <!-- EGP Quick-fill (only on new bids opened manually) -->
+      <div x-show="!modal.id && !modal.fromFeed" class="rounded-xl p-4" style="background:#f0f9ff;border:1px solid #bae6fd;">
         <p class="text-xs font-bold mb-3" style="color:#0369a1;">⚡ Quick-fill from EGP Uganda</p>
         <div class="grid grid-cols-2 gap-2">
           <select x-model="modal.egpEntity" @change="onEgpEntityChange()" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-white">
@@ -3232,6 +3232,13 @@ function app() {
       if (record.entity_name && record.entity_name !== record.bid_details && record.bid_details) return record.bid_details;
       return record.entity_name || record.bid_details || '';
     },
+    openEGPModal(b) {
+      this.egpModal = { open:true, ...b };
+    },
+    openEGPModalByRef(ref) {
+      const b = (this.egpBids||[]).find(x => x.ref_number === ref);
+      if (b) this.egpModal = { open:true, ...b };
+    },
     egpEntityList() {
       const names = new Set();
       (this.egpBids||[]).forEach(b => names.add(this.egpGetEntityName(b)));
@@ -3269,7 +3276,7 @@ function app() {
         service_type:'ICT Services',
         scope_of_work: (b.description||b.title||'') + '\nRef: '+(b.ref_number||'')+'. Source: ungm.org. Link: '+(b.detail_url||''),
         notes: 'UNGM Ref: '+(b.ref_number||'')+' | Type: '+(b.notice_type||'Tender'),
-        egpEntity:'', egpBidId:'' };
+        egpEntity:'', egpBidId:'', fromFeed:true };
     },
     bidFromUNHCR(b) {
       this.modal = { open:true, id:null, saving:false,
@@ -3280,7 +3287,7 @@ function app() {
         service_type:'ICT Services',
         scope_of_work: (b.description||b.title||'') + '\nRef: '+(b.ref_number||'')+'. Source: unhcr.org. Link: '+(b.detail_url||''),
         notes: 'UNHCR Ref: '+(b.ref_number||'')+' | Type: '+(b.notice_type||'RFP'),
-        egpEntity:'', egpBidId:'' };
+        egpEntity:'', egpBidId:'', fromFeed:true };
     },
     bidFromNSD(b) {
       this.modal = { open:true, id:null, saving:false,
@@ -3291,7 +3298,7 @@ function app() {
         service_type: b.category||'ICT Services',
         scope_of_work: (b.description||b.title||'') + '\nRef: '+(b.ref_number||'')+'. Source: nsd.pau.go.ug. Link: '+(b.detail_url||''),
         notes: 'NSD Ref: '+(b.ref_number||''),
-        egpEntity:'', egpBidId:'' };
+        egpEntity:'', egpBidId:'', fromFeed:true };
     },
     openProposalWizardFromFeed(b, source) {
       // First save to My Bids in background, then open wizard
