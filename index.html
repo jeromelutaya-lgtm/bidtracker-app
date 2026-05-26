@@ -1141,7 +1141,10 @@ let GMAIL_TOKEN = '';
                 <td class="px-4 py-3.5 text-xs text-slate-500" x-text="b.published_date ? formatDate(b.published_date) : '—'"></td>
                 <td class="px-4 py-3.5 text-xs font-semibold" :class="isUrgent(b.deadline)?'brand-red':'text-slate-600'" x-text="b.deadline ? formatDate(b.deadline) : 'TBD'"></td>
                 <td class="px-4 py-3.5 text-right">
-                  <button @click="bidFromNSD(b)" class="btn-red text-xs px-3 py-1.5">Bid Now</button>
+                  <div class="flex gap-2 justify-end">
+                    <button @click="bidFromNSD(b)" class="btn-outline text-xs px-2.5 py-1" style="color:#1a9a5c;border-color:#1a9a5c;">+ Add Bid</button>
+                    <button @click="openProposalWizardFromFeed(b,'nsd')" class="btn-red text-xs px-3 py-1.5">📄 Proposal</button>
+                  </div>
                 </td>
               </tr>
             </template>
@@ -1221,9 +1224,10 @@ let GMAIL_TOKEN = '';
                 <td class="p-3 text-xs text-slate-500" x-text="b.notice_type||'Tender'"></td>
                 <td class="p-3 text-xs" :class="b.deadline && b.deadline < new Date().toISOString().split('T')[0] ? 'text-red-500 font-bold' : 'text-slate-600'" x-text="b.deadline||'—'"></td>
                 <td class="p-3">
-                  <div class="flex gap-2">
+                  <div class="flex gap-2 flex-wrap">
                     <a :href="b.detail_url" target="_blank" class="btn-outline text-xs px-2.5 py-1">View</a>
-                    <button @click="bidFromUNGM(b)" class="btn-red text-xs px-3 py-1.5">Bid Now</button>
+                    <button @click="bidFromUNGM(b)" class="btn-outline text-xs px-2.5 py-1" style="color:#1a9a5c;border-color:#1a9a5c;">+ Add Bid</button>
+                    <button @click="openProposalWizardFromFeed(b,'ungm')" class="btn-red text-xs px-3 py-1.5">📄 Proposal</button>
                   </div>
                 </td>
               </tr>
@@ -1301,9 +1305,10 @@ let GMAIL_TOKEN = '';
                 <td class="p-3 text-xs text-slate-500" x-text="b.notice_type||'RFP'"></td>
                 <td class="p-3 text-xs" :class="b.deadline && b.deadline < new Date().toISOString().split('T')[0] ? 'text-red-500 font-bold' : 'text-slate-600'" x-text="b.deadline||'—'"></td>
                 <td class="p-3">
-                  <div class="flex gap-2">
+                  <div class="flex gap-2 flex-wrap">
                     <a :href="b.detail_url" target="_blank" class="btn-outline text-xs px-2.5 py-1">View</a>
-                    <button @click="bidFromUNHCR(b)" class="btn-red text-xs px-3 py-1.5">Bid Now</button>
+                    <button @click="bidFromUNHCR(b)" class="btn-outline text-xs px-2.5 py-1" style="color:#1a9a5c;border-color:#1a9a5c;">+ Add Bid</button>
+                    <button @click="openProposalWizardFromFeed(b,'unhcr')" class="btn-red text-xs px-3 py-1.5">📄 Proposal</button>
                   </div>
                 </td>
               </tr>
@@ -3287,6 +3292,35 @@ function app() {
         scope_of_work: (b.description||b.title||'') + '\nRef: '+(b.ref_number||'')+'. Source: nsd.pau.go.ug. Link: '+(b.detail_url||''),
         notes: 'NSD Ref: '+(b.ref_number||''),
         egpEntity:'', egpBidId:'' };
+    },
+    openProposalWizardFromFeed(b, source) {
+      // First save to My Bids in background, then open wizard
+      const bidData = {
+        title: b.title || '',
+        client_name: b.organization || (source === 'unhcr' ? 'UNHCR' : 'UN Agency'),
+        status: 'Bidding',
+        bid_amount: '',
+        currency: 'USD',
+        bid_date: new Date().toISOString().split('T')[0],
+        deadline: b.deadline || '',
+        follow_up_date: '',
+        service_type: 'ICT Services',
+        scope_of_work: (b.description || b.title || '') + '\nRef: ' + (b.ref_number || '') + '. Source: ' + (b.detail_url || ''),
+        notes: (source.toUpperCase()) + ' Ref: ' + (b.ref_number || '') + ' | Type: ' + (b.notice_type || 'Tender'),
+      };
+      // Open the proposal wizard directly with this bid data pre-filled
+      this.proposalWizard = {
+        open: true, step: 2,
+        bid: bidData,
+        docFile: null,
+        serviceType: 'ICT Services',
+        includeProjectPlan: false,
+        includeESG: false,
+        notes: bidData.notes,
+        statusMsg: '', progress: 0, done: false, error: null,
+        resultUrl: null, certsUrl: null, certCount: 0, itemCount: 0, grandTotal: 0,
+        pendingRequestId: null
+      };
     },
     openNewBid() {
       this.modal = { open:true, id:null, saving:false, title:'', client_name:'', status:'Bidding', bid_amount:'', currency:'UGX', bid_date:new Date().toISOString().split('T')[0], deadline:'', follow_up_date:'', service_type:'', scope_of_work:'', notes:'', egpEntity:'', egpBidId:'' };
