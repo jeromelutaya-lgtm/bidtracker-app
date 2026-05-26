@@ -3046,7 +3046,7 @@ function app() {
       return match ? match[1] : null;
     },
     openProposalWizard(bid = null) {
-      this.proposalWizard = { open: true, step: 1, bid: bid || null, docFile: null, serviceType: bid ? (bid.service_type || '') : '', includeProjectPlan: false, includeESG: false, notes: '', statusMsg: '', progress: 0, done: false, error: null, resultUrl: null, certsUrl: null, certCount: 0, itemCount: 0, grandTotal: 0 };
+      this.proposalWizard = { open: true, step: 1, bid: bid || null, docFile: null, serviceType: bid ? (bid.service_type || '') : '', includeProjectPlan: false, includeESG: false, notes: '', statusMsg: '', progress: 0, done: false, error: null, resultUrl: null, certsUrl: null, certCount: 0, itemCount: 0, grandTotal: 0, pendingRequestId: null };
       if (bid) this.proposalWizard.step = 2;
     },
     wizardNext() {
