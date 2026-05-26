@@ -360,6 +360,16 @@ let GMAIL_TOKEN = '';
         NSD Bids
         <span class="ml-auto bg-blue-500/70 text-white text-xs font-bold px-2 py-0.5 rounded-full" x-text="(nsdBids||[]).length"></span>
       </button>
+      <button @click="view='ungm'" :class="view==='ungm'?'active':''" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        UNGM Feed
+        <span class="ml-auto bg-teal-500/70 text-white text-xs font-bold px-2 py-0.5 rounded-full" x-text="(ungmBids||[]).length"></span>
+      </button>
+      <button @click="view='unhcr'" :class="view==='unhcr'?'active':''" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
+        UNHCR Feed
+        <span class="ml-auto bg-indigo-500/70 text-white text-xs font-bold px-2 py-0.5 rounded-full" x-text="(unhcrBids||[]).length"></span>
+      </button>
 
       <div class="pt-3 pb-1 px-1">
         <p class="text-white/20 text-xs font-bold uppercase tracking-widest">Filter by Status</p>
@@ -1140,6 +1150,168 @@ let GMAIL_TOKEN = '';
       </div>
     </div>
 
+
+
+
+    <!-- ===== UNGM LIVE FEED VIEW ===== -->
+    <div x-show="!loading && view==='ungm'" class="p-7">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-xl font-bold text-slate-900">🌐 UNGM Live Feed — UN Global Marketplace</h1>
+          <p class="text-slate-400 text-sm mt-0.5">ICT procurement opportunities from United Nations agencies (ungm.org)</p>
+        </div>
+        <div class="flex gap-2">
+          <input x-model="ungmSearch" class="input w-56" placeholder="Search UNGM bids...">
+          <a href="https://www.ungm.org" target="_blank" class="btn-outline text-sm px-4 py-2 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            Open UNGM Portal
+          </a>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-teal-600" x-text="(ungmBids||[]).filter(b=>b.status==='Active').length"></div>
+          <div class="text-xs text-slate-500 mt-1">Active Tenders</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-amber-500" x-text="(ungmBids||[]).filter(b=>b.is_new).length"></div>
+          <div class="text-xs text-slate-500 mt-1">New This Week</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-slate-700" x-text="(ungmBids||[]).length"></div>
+          <div class="text-xs text-slate-500 mt-1">Total Tracked</div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div x-show="(ungmBids||[]).length === 0" class="card p-8 text-center mb-5">
+        <div class="text-4xl mb-3">🌐</div>
+        <h3 class="font-bold text-slate-700 mb-2">No UNGM Bids Yet</h3>
+        <p class="text-slate-400 text-sm mb-4">The UNGM scraper runs every Monday at 8:30 AM EAT.<br>First results will appear after the next scheduled run.</p>
+        <a href="https://www.ungm.org/Public/Notice" target="_blank" class="btn-red text-sm px-5 py-2 inline-flex items-center gap-2">
+          Browse UNGM Manually
+        </a>
+      </div>
+
+      <!-- Bids table -->
+      <div x-show="(ungmBids||[]).length > 0" class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead style="background:#0f172a;">
+            <tr>
+              <th class="text-left p-3 text-white font-semibold text-xs">Title</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Organization</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Type</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Deadline</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="b in filteredUNGM" :key="b.id||b.ref_number">
+              <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <td class="p-3">
+                  <div class="flex items-start gap-2">
+                    <span x-show="b.is_new" class="bg-teal-100 text-teal-700 text-xs px-1.5 py-0.5 rounded font-bold flex-shrink-0">NEW</span>
+                    <span class="font-medium text-slate-800 text-xs leading-snug" x-text="b.title"></span>
+                  </div>
+                  <div class="text-slate-400 text-xs mt-0.5" x-text="b.ref_number"></div>
+                </td>
+                <td class="p-3 text-xs text-slate-600" x-text="b.organization||'UN Agency'"></td>
+                <td class="p-3 text-xs text-slate-500" x-text="b.notice_type||'Tender'"></td>
+                <td class="p-3 text-xs" :class="b.deadline && b.deadline < new Date().toISOString().split('T')[0] ? 'text-red-500 font-bold' : 'text-slate-600'" x-text="b.deadline||'—'"></td>
+                <td class="p-3">
+                  <div class="flex gap-2">
+                    <a :href="b.detail_url" target="_blank" class="btn-outline text-xs px-2.5 py-1">View</a>
+                    <button @click="bidFromUNGM(b)" class="btn-red text-xs px-3 py-1.5">Bid Now</button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== UNHCR LIVE FEED VIEW ===== -->
+    <div x-show="!loading && view==='unhcr'" class="p-7">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-xl font-bold text-slate-900">🔵 UNHCR Live Feed — UN Refugee Agency</h1>
+          <p class="text-slate-400 text-sm mt-0.5">ICT procurement opportunities from UNHCR (unhcr.org)</p>
+        </div>
+        <div class="flex gap-2">
+          <input x-model="unhcrSearch" class="input w-56" placeholder="Search UNHCR bids...">
+          <a href="https://www.unhcr.org/procurement/business-opportunities/" target="_blank" class="btn-outline text-sm px-4 py-2 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            Open UNHCR Portal
+          </a>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-indigo-600" x-text="(unhcrBids||[]).filter(b=>b.status==='Active').length"></div>
+          <div class="text-xs text-slate-500 mt-1">Active Tenders</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-amber-500" x-text="(unhcrBids||[]).filter(b=>b.is_new).length"></div>
+          <div class="text-xs text-slate-500 mt-1">New This Week</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-slate-700" x-text="(unhcrBids||[]).length"></div>
+          <div class="text-xs text-slate-500 mt-1">Total Tracked</div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div x-show="(unhcrBids||[]).length === 0" class="card p-8 text-center mb-5">
+        <div class="text-4xl mb-3">🔵</div>
+        <h3 class="font-bold text-slate-700 mb-2">No UNHCR Bids Yet</h3>
+        <p class="text-slate-400 text-sm mb-4">The UNHCR scraper runs every Monday at 8:45 AM EAT.<br>First results will appear after the next scheduled run.</p>
+        <a href="https://www.unhcr.org/procurement/business-opportunities/" target="_blank" class="btn-red text-sm px-5 py-2 inline-flex items-center gap-2">
+          Browse UNHCR Manually
+        </a>
+      </div>
+
+      <!-- Bids table -->
+      <div x-show="(unhcrBids||[]).length > 0" class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead style="background:#0f172a;">
+            <tr>
+              <th class="text-left p-3 text-white font-semibold text-xs">Title</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Organization</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Type</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Deadline</th>
+              <th class="text-left p-3 text-white font-semibold text-xs">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="b in filteredUNHCR" :key="b.id||b.ref_number">
+              <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <td class="p-3">
+                  <div class="flex items-start gap-2">
+                    <span x-show="b.is_new" class="bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded font-bold flex-shrink-0">NEW</span>
+                    <span class="font-medium text-slate-800 text-xs leading-snug" x-text="b.title"></span>
+                  </div>
+                  <div class="text-slate-400 text-xs mt-0.5" x-text="b.ref_number"></div>
+                </td>
+                <td class="p-3 text-xs text-slate-600" x-text="b.organization||'UNHCR'"></td>
+                <td class="p-3 text-xs text-slate-500" x-text="b.notice_type||'RFP'"></td>
+                <td class="p-3 text-xs" :class="b.deadline && b.deadline < new Date().toISOString().split('T')[0] ? 'text-red-500 font-bold' : 'text-slate-600'" x-text="b.deadline||'—'"></td>
+                <td class="p-3">
+                  <div class="flex gap-2">
+                    <a :href="b.detail_url" target="_blank" class="btn-outline text-xs px-2.5 py-1">View</a>
+                    <button @click="bidFromUNHCR(b)" class="btn-red text-xs px-3 py-1.5">Bid Now</button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
     <!-- ===== DOCUMENT VAULT VIEW ===== -->
     <div x-show="!loading && view==='docs'" style="padding:0; height:100%;">
@@ -2327,6 +2499,8 @@ function app() {
     contracts: typeof CONTRACTS_SEED_DATA !== 'undefined' ? [...CONTRACTS_SEED_DATA].sort((a,b)=>new Date(b.created_date||0)-new Date(a.created_date||0)) : [],
     egpBids: [],
     nsdBids: [],
+    ungmBids: [],
+    unhcrBids: [],
     emails: [], emailsLoading: false, emailsError: '', selectedEmail: null,
     emailCompose: { open: false, to: '', subject: '', body: '' }, emailComposeStatus: '',
 
@@ -2569,6 +2743,8 @@ function app() {
     search: '',
     egpSearch: '',
     nsdSearch: '',
+    ungmSearch: '',
+    unhcrSearch: '',
     statusFilter: '',
     toast: '',
     toastTimer: null,
@@ -2629,6 +2805,16 @@ function app() {
       if (!this.egpSearch) return this.egpBids;
       const q = this.egpSearch.toLowerCase();
       return this.egpBids.filter(b=>(b.entity_name||'').toLowerCase().includes(q)||(b.ref_number||'').toLowerCase().includes(q)||(b.bid_details||'').toLowerCase().includes(q));
+    },
+    get filteredUNGM() {
+      if (!this.ungmSearch) return (this.ungmBids||[]).filter(b=>!b.dismissed);
+      const q = this.ungmSearch.toLowerCase();
+      return (this.ungmBids||[]).filter(b=>!b.dismissed && ((b.title||'').toLowerCase().includes(q)||(b.ref_number||'').toLowerCase().includes(q)||(b.organization||'').toLowerCase().includes(q)));
+    },
+    get filteredUNHCR() {
+      if (!this.unhcrSearch) return (this.unhcrBids||[]).filter(b=>!b.dismissed);
+      const q = this.unhcrSearch.toLowerCase();
+      return (this.unhcrBids||[]).filter(b=>!b.dismissed && ((b.title||'').toLowerCase().includes(q)||(b.ref_number||'').toLowerCase().includes(q)||(b.organization||'').toLowerCase().includes(q)));
     },
     get filteredNSD() {
       if (!this.nsdSearch) return this.nsdBids;
@@ -2973,8 +3159,25 @@ function app() {
           .sort((a,b) => new Date(b.published_date||0) - new Date(a.published_date||0));
       }
 
+      // Load UNGM, UNHCR, NSD bids in background (non-blocking)
+      this.loadUNBids();
       // Load document vault in background (non-blocking)
       this.loadDocuments();
+    },
+
+    async loadUNBids() {
+      try {
+        const h = {'Content-Type':'application/json','x-app-id':'69fd345c00eead7ea202264c'};
+        // UNGM
+        const ur = await fetch(API_BASE+'/functions/saveBid', {method:'POST', headers:h, body:JSON.stringify({action:'listEntity', entity:'UNGMBidNotice', limit:200})});
+        if (ur.ok) { const ud = await ur.json(); if (Array.isArray(ud.result)) this.ungmBids = ud.result.filter(b=>!b.dismissed); }
+        // UNHCR
+        const hr = await fetch(API_BASE+'/functions/saveBid', {method:'POST', headers:h, body:JSON.stringify({action:'listEntity', entity:'UNHCRBidNotice', limit:200})});
+        if (hr.ok) { const hd = await hr.json(); if (Array.isArray(hd.result)) this.unhcrBids = hd.result.filter(b=>!b.dismissed); }
+        // NSD from entity (if available)
+        const nr = await fetch(API_BASE+'/functions/saveBid', {method:'POST', headers:h, body:JSON.stringify({action:'listEntity', entity:'NSDBidNotice', limit:200})});
+        if (nr.ok) { const nd = await nr.json(); if (Array.isArray(nd.result) && nd.result.length > 0) this.nsdBids = nd.result.filter(b=>!b.dismissed); }
+      } catch(e) { console.warn('UN bids load error:', e.message); }
     },
 
     // ── EGP ENTITY/BID HELPERS ─────────────────────────
@@ -3040,6 +3243,39 @@ function app() {
       this.modal.scope_of_work = title + (b.procurement_method ? '\nProcurement Method: ' + b.procurement_method : '') + (b.ref_number ? '\nEGP Ref: ' + b.ref_number : '');
       if (b.deadline && b.deadline !== 'View Details') this.modal.deadline = b.deadline.split(' ')[0];
       this.modal.notes = 'EGP Ref: ' + (b.ref_number||'') + (b.detail_url ? ' | ' + b.detail_url : '');
+    },
+    bidFromUNGM(b) {
+      this.modal = { open:true, id:null, saving:false,
+        title: b.title||'', client_name: b.organization||'UN Agency',
+        status:'Draft', bid_amount:'', currency:'USD',
+        bid_date: new Date().toISOString().split('T')[0],
+        deadline: b.deadline||'', follow_up_date:'',
+        service_type:'ICT Services',
+        scope_of_work: (b.description||b.title||'') + '\nRef: '+(b.ref_number||'')+'. Source: ungm.org. Link: '+(b.detail_url||''),
+        notes: 'UNGM Ref: '+(b.ref_number||'')+' | Type: '+(b.notice_type||'Tender'),
+        egpEntity:'', egpBidId:'' };
+    },
+    bidFromUNHCR(b) {
+      this.modal = { open:true, id:null, saving:false,
+        title: b.title||'', client_name: b.organization||'UNHCR',
+        status:'Draft', bid_amount:'', currency:'USD',
+        bid_date: new Date().toISOString().split('T')[0],
+        deadline: b.deadline||'', follow_up_date:'',
+        service_type:'ICT Services',
+        scope_of_work: (b.description||b.title||'') + '\nRef: '+(b.ref_number||'')+'. Source: unhcr.org. Link: '+(b.detail_url||''),
+        notes: 'UNHCR Ref: '+(b.ref_number||'')+' | Type: '+(b.notice_type||'RFP'),
+        egpEntity:'', egpBidId:'' };
+    },
+    bidFromNSD(b) {
+      this.modal = { open:true, id:null, saving:false,
+        title: b.title||'', client_name: b.entity_name||'NSD Entity',
+        status:'Draft', bid_amount:'', currency:'UGX',
+        bid_date: new Date().toISOString().split('T')[0],
+        deadline: b.deadline||'', follow_up_date:'',
+        service_type: b.category||'ICT Services',
+        scope_of_work: (b.description||b.title||'') + '\nRef: '+(b.ref_number||'')+'. Source: nsd.pau.go.ug. Link: '+(b.detail_url||''),
+        notes: 'NSD Ref: '+(b.ref_number||''),
+        egpEntity:'', egpBidId:'' };
     },
     openNewBid() {
       this.modal = { open:true, id:null, saving:false, title:'', client_name:'', status:'Bidding', bid_amount:'', currency:'UGX', bid_date:new Date().toISOString().split('T')[0], deadline:'', follow_up_date:'', service_type:'', scope_of_work:'', notes:'', egpEntity:'', egpBidId:'' };
