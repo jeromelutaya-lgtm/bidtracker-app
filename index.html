@@ -2337,7 +2337,7 @@ function app() {
     docsSearch: '',
     docPreviewModal: { open: false, doc: null },
     docUploadModal: { open: false, folder: 'Company Legal Documents', description: '', file: null, fileName: '', fileSize: 0, fileType: '', uploading: false, error: '' },
-    proposalWizard: { open: false, step: 1, bid: null, docFile: null, serviceType: '', includeProjectPlan: false, includeESG: false, notes: '', statusMsg: '', progress: 0, done: false, error: null, resultUrl: null, certsUrl: null, certCount: 0, itemCount: 0, grandTotal: 0 },
+    proposalWizard: { open: false, step: 1, bid: null, docFile: null, serviceType: '', includeProjectPlan: false, includeESG: false, notes: '', statusMsg: '', progress: 0, done: false, error: null, resultUrl: null, certsUrl: null, certCount: 0, itemCount: 0, grandTotal: 0, pendingRequestId: null },
     docFolders: [
       { id: 'Company Legal Documents',     icon: '🏛️', color: '#1e3a5f' },
       { id: 'Admin Documents',             icon: '📋', color: '#1e3a5f' },
@@ -3070,6 +3070,10 @@ function app() {
       const bid = this.proposalWizard.bid;
 
       try {
+        // If retrying, reuse the existing requestId rather than creating a new record
+        let requestId = this.proposalWizard.pendingRequestId || null;
+
+        if (!requestId) {
         // Extract ref number from bid notes/title
         const refMatch = (bid.notes || bid.scope_of_work || '').match(/([A-Z][A-Z0-9\/\-]+\/\d{4}-\d{4}\/\d+)/);
         const refNumber = refMatch ? refMatch[1] : '';
@@ -3106,13 +3110,15 @@ function app() {
         const created = createJson.result || createJson;
         const requestId = created.id;
         if (!requestId) throw new Error('No request ID returned');
+        this.proposalWizard.pendingRequestId = requestId; // save so Try Again can re-poll
+        } // end if(!requestId)
 
         this.proposalWizard.progress = 20;
         this.proposalWizard.statusMsg = 'Request received — AI agent is building your proposal...';
 
-        // Poll for completion (max 4 minutes)
-        const maxWait = 240000;
-        const pollInterval = 5000;
+        // Poll for completion (max 8 minutes — agent builds PDF server-side)
+        const maxWait = 480000;
+        const pollInterval = 4000;
         const startTime = Date.now();
         const messages = [
           'Running Python proposal builder...',
@@ -3161,7 +3167,7 @@ function app() {
           }
         }
 
-        throw new Error('Timed out waiting for proposal. Please try again — the AI agent may be busy.');
+        throw new Error('Still building — your proposal is taking a little longer than usual. Click Try Again; it may already be ready.');
 
       } catch(e) {
         console.error('Proposal error:', e);
@@ -3617,7 +3623,10 @@ function app() {
                 </div>
                 <h3 class="font-bold text-slate-800 text-lg mb-2">Something went wrong</h3>
                 <p class="text-red-500 text-sm mb-6" x-text="proposalWizard.error"></p>
-                <button @click="proposalWizard.step=3; proposalWizard.error=null;" class="btn-red text-sm px-5 py-2">Try Again</button>
+                <div class="flex flex-col gap-2 items-center">
+                  <button @click="proposalWizard.error=null; runProposalGeneration();" class="btn-red text-sm px-5 py-2">🔄 Try Again</button>
+                  <button @click="proposalWizard.step=3; proposalWizard.error=null; proposalWizard.pendingRequestId=null;" class="text-xs text-slate-400 hover:text-slate-600 mt-1">← Change settings & regenerate</button>
+                </div>
               </div>
             </template>
           </div>
