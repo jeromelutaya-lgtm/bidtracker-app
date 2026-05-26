@@ -2924,7 +2924,14 @@ function app() {
     async loadData() {
       // ── ALWAYS fetch live data from the API first ──────────────────────
       try {
-        const token = this.currentUser?.sessionToken || (JSON.parse(localStorage.getItem('bt_session')||'{}').token);
+        // Token stored as plain string by doLogin; support legacy JSON format too
+        let token = this.sessionToken;
+        if (!token) {
+          const raw = localStorage.getItem('bt_session') || sessionStorage.getItem('bt_session') || '';
+          if (raw) {
+            try { token = JSON.parse(raw).token || raw; } catch(e) { token = raw; }
+          }
+        }
         const headers = token ? { 'x-session-token': token } : {};
         const res = await fetch(API_BASE + '/functions/getBidData', { headers });
         if (res.ok) {
