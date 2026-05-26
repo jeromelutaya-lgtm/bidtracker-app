@@ -3181,13 +3181,13 @@ function app() {
         const h = {'Content-Type':'application/json','x-app-id':'69fd345c00eead7ea202264c'};
         // UNGM
         const ur = await fetch(API_BASE+'/functions/saveBid', {method:'POST', headers:h, body:JSON.stringify({action:'listEntity', entity:'UNGMBidNotice', limit:200})});
-        if (ur.ok) { const ud = await ur.json(); if (Array.isArray(ud.result)) this.ungmBids = ud.result.filter(b=>!b.dismissed); }
+        if (ur.ok) { const ud = await ur.json(); const ungmRecs = Array.isArray(ud.result) ? ud.result : (ud.result?.records || ud.result?.items || []); this.ungmBids = ungmRecs.filter(b=>!b.dismissed); }
         // UNHCR
         const hr = await fetch(API_BASE+'/functions/saveBid', {method:'POST', headers:h, body:JSON.stringify({action:'listEntity', entity:'UNHCRBidNotice', limit:200})});
-        if (hr.ok) { const hd = await hr.json(); if (Array.isArray(hd.result)) this.unhcrBids = hd.result.filter(b=>!b.dismissed); }
+        if (hr.ok) { const hd = await hr.json(); const unhcrRecs = Array.isArray(hd.result) ? hd.result : (hd.result?.records || hd.result?.items || []); this.unhcrBids = unhcrRecs.filter(b=>!b.dismissed); }
         // NSD from entity (if available)
         const nr = await fetch(API_BASE+'/functions/saveBid', {method:'POST', headers:h, body:JSON.stringify({action:'listEntity', entity:'NSDBidNotice', limit:200})});
-        if (nr.ok) { const nd = await nr.json(); if (Array.isArray(nd.result) && nd.result.length > 0) this.nsdBids = nd.result.filter(b=>!b.dismissed); }
+        if (nr.ok) { const nd = await nr.json(); const nsdRecs = Array.isArray(nd.result) ? nd.result : (nd.result?.records || nd.result?.items || []); this.nsdBids = nsdRecs.filter(b=>!b.dismissed); }
       } catch(e) { console.warn('UN bids load error:', e.message); }
     },
 
