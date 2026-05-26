@@ -3074,44 +3074,36 @@ function app() {
         const refMatch = (bid.notes || bid.scope_of_work || '').match(/([A-Z][A-Z0-9\/\-]+\/\d{4}-\d{4}\/\d+)/);
         const refNumber = refMatch ? refMatch[1] : '';
 
-        // Use the session token already set on the Alpine component (raw string, not JSON)
-        const token = this.sessionToken
-          || sessionStorage.getItem('bt_session')
-          || localStorage.getItem('bt_session')
-          || '';
-
-        const APP_ID = '69fd345c00eead7ea202264c';
-        const API = `https://base44.app/api/apps/${APP_ID}`;
-
-        const createRes = await fetch(`${API}/entities/ProposalRequest`, {
+        // Route through saveBid backend function (uses asServiceRole — no auth issues)
+        const createRes = await fetch(API_BASE + '/functions/saveBid', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-app-id': APP_ID,
-            'x-session-token': token
-          },
+          headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
           body: JSON.stringify({
-            bid_id: bid.id || '',
-            bid_title: bid.title || '',
-            client_name: bid.client_name || '',
-            ref_number: refNumber || bid.notes || '',
-            bid_amount: parseFloat(bid.bid_amount) || 0,
-            currency: bid.currency || 'UGX',
-            deadline: bid.deadline || '',
-            scope_of_work: bid.scope_of_work || bid.title || '',
-            service_type: this.proposalWizard.serviceType || bid.service_type || 'Maintenance',
-            include_project_plan: this.proposalWizard.includeProjectPlan || false,
-            include_esg: this.proposalWizard.includeESG || false,
-            notes: this.proposalWizard.notes || '',
-            status: 'pending',
-            bid_forms_url: '',
-            certs_url: '',
-            error_message: ''
+            action: 'createProposalRequest',
+            data: {
+              bid_id: bid.id || '',
+              bid_title: bid.title || '',
+              client_name: bid.client_name || '',
+              ref_number: refNumber || bid.notes || '',
+              bid_amount: parseFloat(bid.bid_amount) || 0,
+              currency: bid.currency || 'UGX',
+              deadline: bid.deadline || '',
+              scope_of_work: bid.scope_of_work || bid.title || '',
+              service_type: this.proposalWizard.serviceType || bid.service_type || 'Maintenance',
+              include_project_plan: this.proposalWizard.includeProjectPlan || false,
+              include_esg: this.proposalWizard.includeESG || false,
+              notes: this.proposalWizard.notes || '',
+              status: 'pending',
+              bid_forms_url: '',
+              certs_url: '',
+              error_message: ''
+            }
           })
         });
 
         if (!createRes.ok) throw new Error('Failed to submit request: ' + createRes.status);
-        const created = await createRes.json();
+        const createJson = await createRes.json();
+        const created = createJson.result || createJson;
         const requestId = created.id;
         if (!requestId) throw new Error('No request ID returned');
 
@@ -3146,14 +3138,14 @@ function app() {
           msgIdx++;
 
           // Poll status
-          const pollRes = await fetch(`${API}/entities/ProposalRequest/${requestId}`, {
-            headers: {
-              'x-app-id': APP_ID,
-              'x-session-token': token
-            }
+          const pollRes = await fetch(API_BASE + '/functions/saveBid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
+            body: JSON.stringify({ action: 'getProposalRequest', id: requestId })
           });
           if (!pollRes.ok) continue;
-          const record = await pollRes.json();
+          const pollJson = await pollRes.json();
+          const record = pollJson.result || pollJson;
 
           if (record.status === 'done' && record.bid_forms_url) {
             this.proposalWizard.progress = 100;
