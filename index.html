@@ -3074,14 +3074,22 @@ function app() {
         const refMatch = (bid.notes || bid.scope_of_work || '').match(/([A-Z][A-Z0-9\/\-]+\/\d{4}-\d{4}\/\d+)/);
         const refNumber = refMatch ? refMatch[1] : '';
 
-        // Write directly to ProposalRequest entity
-        const session = JSON.parse(localStorage.getItem('bt_session') || '{}');
-        const token = session.token || '';
-        const API = 'https://api.base44.app/api/apps/69fd345c00eead7ea202264c';
+        // Use the session token already set on the Alpine component (raw string, not JSON)
+        const token = this.sessionToken
+          || sessionStorage.getItem('bt_session')
+          || localStorage.getItem('bt_session')
+          || '';
+
+        const APP_ID = '69fd345c00eead7ea202264c';
+        const API = `https://base44.app/api/apps/${APP_ID}`;
 
         const createRes = await fetch(`${API}/entities/ProposalRequest`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-User-Token': token },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-app-id': APP_ID,
+            'x-session-token': token
+          },
           body: JSON.stringify({
             bid_id: bid.id || '',
             bid_title: bid.title || '',
@@ -3139,7 +3147,10 @@ function app() {
 
           // Poll status
           const pollRes = await fetch(`${API}/entities/ProposalRequest/${requestId}`, {
-            headers: { 'X-User-Token': token }
+            headers: {
+              'x-app-id': APP_ID,
+              'x-session-token': token
+            }
           });
           if (!pollRes.ok) continue;
           const record = await pollRes.json();
@@ -3405,9 +3416,9 @@ function app() {
     <!-- GENERATE PROPOSAL WIZARD MODAL                                 -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div x-show="proposalWizard.open" x-cloak
-         style="position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"
+         style="position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);"
          @click.self="proposalWizard.open=false">
-      <div class="bg-white rounded-2xl shadow-2xl flex flex-col" style="width:640px;max-height:90vh;overflow:hidden;">
+      <div class="bg-white rounded-2xl shadow-2xl flex flex-col" style="width:min(640px,94vw);max-height:90vh;overflow:hidden;margin:auto;">
 
         <!-- Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#0d1b3e,#1e3a5f);">
