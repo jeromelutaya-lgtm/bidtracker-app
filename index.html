@@ -2480,7 +2480,7 @@ function app() {
     // Auth
     authView: 'login',
     currentUser: null,
-    sessionToken: localStorage.getItem('bt_session') || null,
+    sessionToken: (()=>{ try { const t=localStorage.getItem('bt_session')||sessionStorage.getItem('bt_session')||''; return t && t.length>10 ? t : null; } catch(e){ return null; } })(),
     loginForm: { email: '', password: '', showPw: false, rememberMe: false },
     loginError: '',
     loginLoading: false,
@@ -2832,9 +2832,9 @@ function app() {
         this.loading = false;
         return;
       }
-      // Check saved session
-      const saved = localStorage.getItem('bt_session') || sessionStorage.getItem('bt_session');
-      if (saved) {
+      // Check saved session — prefer localStorage, fallback to sessionStorage
+      const saved = localStorage.getItem('bt_session') || sessionStorage.getItem('bt_session') || '';
+      if (saved && saved.length > 10) {
         this.authView = 'app'; this.loading = true;
         try {
           const res = await fetch(API_BASE + '/functions/authHandler', {
@@ -2842,16 +2842,31 @@ function app() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'verify', token: saved })
           });
-          const data = await res.json();
-          if (data.valid) {
-            this.sessionToken = saved;
-            this.currentUser = data.user;
-            this.authView = 'app';
-            await this.loadData();
-            this.loading = false;
-            return;
+          if (res.ok) {
+            const data = await res.json();
+            if (data.valid) {
+              this.sessionToken = saved;
+              this.currentUser = data.user;
+              // Keep both storages in sync
+              localStorage.setItem('bt_session', saved);
+              sessionStorage.setItem('bt_session', saved);
+              this.authView = 'app';
+              await this.loadData();
+              this.loading = false;
+              return;
+            }
           }
-        } catch(e) {}
+        } catch(e) {
+          // Network error — don't log out, stay on app view optimistically
+          this.sessionToken = saved;
+          this.authView = 'app';
+          await this.loadData();
+          this.loading = false;
+          return;
+        }
+        // Token truly invalid — clear and go to login
+        localStorage.removeItem('bt_session');
+        sessionStorage.removeItem('bt_session');
         this.authView = 'login'; this.loading = false;
       } else {
         this.authView = 'login'; this.loading = false;
@@ -2872,13 +2887,9 @@ function app() {
         if (data.error) { this.loginError = data.error; this.loginLoading = false; return; }
         this.sessionToken = data.token;
         this.currentUser = data.user;
-        // Store session - use sessionStorage if not remembering
-        if (this.loginForm.rememberMe) {
-          localStorage.setItem('bt_session', data.token);
-        } else {
-          sessionStorage.setItem('bt_session', data.token);
-          localStorage.removeItem('bt_session');
-        }
+        // Always persist session in localStorage so it survives refresh/tab close
+        localStorage.setItem('bt_session', data.token);
+        sessionStorage.setItem('bt_session', data.token);
         this.authView = 'app';
         this.loading = true;
         await this.loadData();
@@ -3308,48 +3319,58 @@ function app() {
       this.proposalWizard.step = 4;
       this.proposalWizard.done = false;
       this.proposalWizard.error = null;
-      this.proposalWizard.progress = 5;
-      this.proposalWizard.statusMsg = 'Submitting proposal request...';
+      this.proposalWizard.progress = 10;
+      this.proposalWizard.statusMsg = 'Checking for existing proposal...';
       const bid = this.proposalWizard.bid;
 
       try {
-        // If retrying, reuse the existing requestId rather than creating a new record
+        const SAVEBID = API_BASE + '/functions/saveBid';
+        const HEADERS = { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' };
+
+        // ── STEP 1: Check if a done ProposalRequest already exists for this bid ──
+        try {
+          const listRes = await fetch(SAVEBID, {
+            method: 'POST', headers: HEADERS,
+            body: JSON.stringify({ action: 'listEntity', entity: 'ProposalRequest', limit: 50 })
+          });
+          if (listRes.ok) {
+            const listJson = await listRes.json();
+            const records = listJson.result?.records || listJson.result || [];
+            const done = records.find(r =>
+              r.status === 'done' && r.bid_forms_url &&
+              (r.bid_id === (bid.id || '') || r.bid_title === bid.title)
+            );
+            if (done) {
+              this.proposalWizard.progress = 100;
+              this.proposalWizard.statusMsg = 'Proposal ready!';
+              this.proposalWizard.done = true;
+              this.proposalWizard.resultUrl = done.bid_forms_url;
+              this.proposalWizard.certsUrl = done.certs_url || null;
+              return;
+            }
+            // Also check if there's a pending/processing one we can reuse
+            const inProgress = records.find(r =>
+              (r.status === 'pending' || r.status === 'processing') &&
+              (r.bid_id === (bid.id || '') || r.bid_title === bid.title)
+            );
+            if (inProgress) {
+              this.proposalWizard.pendingRequestId = this.proposalWizard.pendingRequestId || inProgress.id;
+            }
+          }
+        } catch(e) { /* ignore — proceed */ }
+
+        // ── STEP 2: Create new ProposalRequest if none exists ──
         let requestId = this.proposalWizard.pendingRequestId || null;
 
         if (!requestId) {
-          // First: check if a completed ProposalRequest already exists for this bid
-          this.proposalWizard.statusMsg = 'Checking for existing proposal...';
-          try {
-            const checkRes = await fetch(API_BASE + '/functions/saveBid', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
-              body: JSON.stringify({ action: 'listEntity', entity: 'ProposalRequest', limit: 20 })
-            });
-            if (checkRes.ok) {
-              const checkJson = await checkRes.json();
-              const existing = (checkJson.result || []).find(r =>
-                r.status === 'done' && r.bid_forms_url &&
-                (r.bid_id === (bid.id||'') || r.bid_title === bid.title)
-              );
-              if (existing) {
-                this.proposalWizard.progress = 100;
-                this.proposalWizard.statusMsg = 'Proposal ready!';
-                this.proposalWizard.done = true;
-                this.proposalWizard.resultUrl = existing.bid_forms_url;
-                this.proposalWizard.certsUrl = existing.certs_url || null;
-                return;
-              }
-            }
-          } catch(checkErr) { /* ignore — proceed to create new */ }
+          this.proposalWizard.progress = 15;
+          this.proposalWizard.statusMsg = 'Submitting proposal request...';
 
-          // Extract ref number from bid notes/title
-          const refMatch = (bid.notes || bid.scope_of_work || '').match(/([A-Z][A-Z0-9\/\-]+\/\d{4}-\d{4}\/\d+)/);
+          const refMatch = (bid.scope_of_work || bid.notes || '').match(/([A-Z][A-Z0-9\/\-]+\/\d{4}-\d{4}\/\d+)/);
           const refNumber = refMatch ? refMatch[1] : '';
 
-          // Route through saveBid backend function (uses asServiceRole — no auth issues)
-          const createRes = await fetch(API_BASE + '/functions/saveBid', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
+          const createRes = await fetch(SAVEBID, {
+            method: 'POST', headers: HEADERS,
             body: JSON.stringify({
               action: 'createProposalRequest',
               data: {
@@ -3361,7 +3382,7 @@ function app() {
                 currency: bid.currency || 'UGX',
                 deadline: bid.deadline || '',
                 scope_of_work: bid.scope_of_work || bid.title || '',
-                service_type: this.proposalWizard.serviceType || bid.service_type || 'Maintenance',
+                service_type: this.proposalWizard.serviceType || bid.service_type || 'ICT Services',
                 include_project_plan: this.proposalWizard.includeProjectPlan || false,
                 include_esg: this.proposalWizard.includeESG || false,
                 notes: this.proposalWizard.notes || '',
@@ -3376,69 +3397,62 @@ function app() {
           if (!createRes.ok) throw new Error('Failed to submit request: ' + createRes.status);
           const createJson = await createRes.json();
           const created = createJson.result || createJson;
-          requestId = created.id;  // assign to outer let — fixed scoping bug
+          requestId = created.id;
           if (!requestId) throw new Error('No request ID returned');
           this.proposalWizard.pendingRequestId = requestId;
-        } // end if(!requestId)
+        }
 
+        // ── STEP 3: Poll for completion (max 8 minutes) ──
         this.proposalWizard.progress = 20;
-        this.proposalWizard.statusMsg = 'Request received — AI agent is building your proposal...';
+        this.proposalWizard.statusMsg = 'AI agent is building your proposal...';
 
-        // Poll for completion (max 8 minutes — agent builds PDF server-side)
         const maxWait = 480000;
-        const pollInterval = 4000;
+        const pollInterval = 5000;
         const startTime = Date.now();
         const messages = [
-          'Running Python proposal builder...',
-          'Applying Jero-one letterhead to all pages...',
+          'Running proposal builder...',
+          'Applying Jero-one letterhead...',
           'Generating Bid Submission Sheet (PPDA format)...',
-          'Building Price Schedule with 108 line items...',
+          'Building Price Schedule (108 line items)...',
           'Adding Bid-Securing Declaration...',
           'Adding Code of Ethical Conduct...',
-          'Embedding signature and stamp on all signed pages...',
+          'Embedding signature and stamp...',
           'Merging compliance certificates...',
-          'Uploading final PDF documents...',
-          'Almost done — finalising proposal...'
+          'Uploading final PDFs...',
+          'Almost done — finalising...'
         ];
         let msgIdx = 0;
 
         while (Date.now() - startTime < maxWait) {
           await new Promise(r => setTimeout(r, pollInterval));
-
           const elapsed = Date.now() - startTime;
-          const pct = Math.min(20 + Math.round((elapsed / maxWait) * 75), 94);
-          this.proposalWizard.progress = pct;
+          this.proposalWizard.progress = Math.min(20 + Math.round((elapsed / maxWait) * 75), 94);
           this.proposalWizard.statusMsg = messages[msgIdx % messages.length];
           msgIdx++;
 
-          // Poll status
-          const pollRes = await fetch(API_BASE + '/functions/saveBid', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
+          const pollRes = await fetch(SAVEBID, {
+            method: 'POST', headers: HEADERS,
             body: JSON.stringify({ action: 'getProposalRequest', id: requestId })
           });
           if (!pollRes.ok) continue;
-          const pollJson = await pollRes.json();
-          const record = pollJson.result || pollJson;
+          const rec = (await pollRes.json()).result || {};
 
-          if (record.status === 'done' && record.bid_forms_url) {
+          if (rec.status === 'done' && rec.bid_forms_url) {
             this.proposalWizard.progress = 100;
             this.proposalWizard.statusMsg = 'Proposal ready!';
             this.proposalWizard.done = true;
-            this.proposalWizard.resultUrl = record.bid_forms_url;
-            this.proposalWizard.certsUrl = record.certs_url || null;
+            this.proposalWizard.resultUrl = rec.bid_forms_url;
+            this.proposalWizard.certsUrl = rec.certs_url || null;
             return;
           }
-
-          if (record.status === 'error') {
-            throw new Error(record.error_message || 'Proposal generation failed');
+          if (rec.status === 'error') {
+            throw new Error(rec.error_message || 'Proposal generation failed on server.');
           }
         }
 
-        throw new Error('Still building — your proposal is taking a little longer than usual. Click Try Again; it may already be ready.');
+        throw new Error('Timed out — click Try Again to check if your proposal is ready.');
 
       } catch(e) {
-        console.error('Proposal error:', e);
         this.proposalWizard.error = e.message || 'Unexpected error.';
       }
     },
@@ -3681,10 +3695,12 @@ function app() {
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- GENERATE PROPOSAL WIZARD MODAL                                 -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div x-show="proposalWizard.open" x-cloak
-         style="position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);"
-         @click.self="proposalWizard.open=false">
-      <div class="bg-white rounded-2xl shadow-2xl flex flex-col" style="width:min(640px,94vw);max-height:90vh;overflow:hidden;margin:auto;">
+    <div x-show="proposalWizard.open" x-transition
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 no-print"
+         style="background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);"
+         @click.self="proposalWizard.open=false"
+         @keydown.escape.window="proposalWizard.open=false">
+      <div class="bg-white rounded-2xl shadow-2xl flex flex-col" style="width:min(640px,94vw);max-height:90vh;overflow:hidden;">
 
         <!-- Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#0d1b3e,#1e3a5f);">
