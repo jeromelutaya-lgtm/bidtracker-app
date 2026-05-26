@@ -1700,24 +1700,26 @@ let GMAIL_TOKEN = '';
 
     <div class="p-6 space-y-4">
 
-      <!-- EGP Quick-fill (only on new bids) -->
-      <div x-show="!modal.id &amp;&amp; !modal.fromFeed" class="rounded-xl p-4" style="background:#f0f9ff;border:1px solid #bae6fd;">
-        <p class="text-xs font-bold mb-3" style="color:#0369a1;">⚡ Quick-fill from EGP Uganda</p>
-        <div class="grid grid-cols-2 gap-2">
-          <select x-model="modal.egpEntity" @change="onEgpEntityChange()" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-white">
-            <option value="">— Select Entity —</option>
-            <template x-for="e in egpEntityList()" :key="e">
-              <option :value="e" x-text="e"></option>
-            </template>
-          </select>
-          <select x-model="modal.egpBidId" @change="onEgpBidSelect()" :disabled="!modal.egpEntity" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-white disabled:opacity-50">
-            <option value="">— Select Bid —</option>
-            <template x-for="b in egpBidsForEntity(modal.egpEntity)" :key="b.id">
-              <option :value="b.id" x-text="(b.bid_details || b.entity_name || '').substring(0,60)"></option>
-            </template>
-          </select>
+      <!-- EGP Quick-fill (only on new bids opened manually, not from feed) -->
+      <template x-if="!modal.id && !modal.fromFeed">
+        <div class="rounded-xl p-4" style="background:#f0f9ff;border:1px solid #bae6fd;">
+          <p class="text-xs font-bold mb-3" style="color:#0369a1;">⚡ Quick-fill from EGP Uganda</p>
+          <div class="grid grid-cols-2 gap-2">
+            <select x-model="modal.egpEntity" @change="onEgpEntityChange()" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-white">
+              <option value="">— Select Entity —</option>
+              <template x-for="e in egpEntityList()" :key="e">
+                <option :value="e" x-text="e"></option>
+              </template>
+            </select>
+            <select x-model="modal.egpBidId" @change="onEgpBidSelect()" :disabled="!modal.egpEntity" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-white disabled:opacity-50">
+              <option value="">— Select Bid —</option>
+              <template x-for="b in egpBidsForEntity(modal.egpEntity)" :key="b.id">
+                <option :value="b.id" x-text="(b.bid_details || b.entity_name || '').substring(0,60)"></option>
+              </template>
+            </select>
+          </div>
         </div>
-      </div>
+      </template>
 
       <!-- Bid Title -->
       <div>
