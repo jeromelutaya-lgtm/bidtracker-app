@@ -3576,8 +3576,8 @@ function app() {
           <div x-show="proposalWizard.step===4" class="py-4">
             <template x-if="!proposalWizard.error && !proposalWizard.done">
               <div class="text-center py-6">
-                <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse" style="background:linear-gradient(135deg,#0d1b3e,#1e3a5f);">
-                  <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <div class="mx-auto mb-4" style="width:80px;height:80px;animation:spin 1.5s linear infinite;filter:drop-shadow(0 4px 12px rgba(13,27,62,0.25));">
+                  <img src="https://base44.app/api/apps/69fd345c00eead7ea202264c/files/mp/public/69fd345c00eead7ea202264c/909aebd48_0619a034d_company_logo.png" alt="Jero-one Logo" style="width:80px;height:80px;object-fit:contain;border-radius:50%;">
                 </div>
                 <h3 class="font-bold text-slate-800 text-lg mb-2">Generating Your Proposal...</h3>
                 <p class="text-slate-400 text-sm mb-6" x-text="proposalWizard.statusMsg || 'Reading bid document and preparing sections...'"></p>
