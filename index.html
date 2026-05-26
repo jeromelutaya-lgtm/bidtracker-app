@@ -3317,43 +3317,68 @@ function app() {
         let requestId = this.proposalWizard.pendingRequestId || null;
 
         if (!requestId) {
-        // Extract ref number from bid notes/title
-        const refMatch = (bid.notes || bid.scope_of_work || '').match(/([A-Z][A-Z0-9\/\-]+\/\d{4}-\d{4}\/\d+)/);
-        const refNumber = refMatch ? refMatch[1] : '';
-
-        // Route through saveBid backend function (uses asServiceRole — no auth issues)
-        const createRes = await fetch(API_BASE + '/functions/saveBid', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
-          body: JSON.stringify({
-            action: 'createProposalRequest',
-            data: {
-              bid_id: bid.id || '',
-              bid_title: bid.title || '',
-              client_name: bid.client_name || '',
-              ref_number: refNumber || bid.notes || '',
-              bid_amount: parseFloat(bid.bid_amount) || 0,
-              currency: bid.currency || 'UGX',
-              deadline: bid.deadline || '',
-              scope_of_work: bid.scope_of_work || bid.title || '',
-              service_type: this.proposalWizard.serviceType || bid.service_type || 'Maintenance',
-              include_project_plan: this.proposalWizard.includeProjectPlan || false,
-              include_esg: this.proposalWizard.includeESG || false,
-              notes: this.proposalWizard.notes || '',
-              status: 'pending',
-              bid_forms_url: '',
-              certs_url: '',
-              error_message: ''
+          // First: check if a completed ProposalRequest already exists for this bid
+          this.proposalWizard.statusMsg = 'Checking for existing proposal...';
+          try {
+            const checkRes = await fetch(API_BASE + '/functions/saveBid', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
+              body: JSON.stringify({ action: 'listEntity', entity: 'ProposalRequest', limit: 20 })
+            });
+            if (checkRes.ok) {
+              const checkJson = await checkRes.json();
+              const existing = (checkJson.result || []).find(r =>
+                r.status === 'done' && r.bid_forms_url &&
+                (r.bid_id === (bid.id||'') || r.bid_title === bid.title)
+              );
+              if (existing) {
+                this.proposalWizard.progress = 100;
+                this.proposalWizard.statusMsg = 'Proposal ready!';
+                this.proposalWizard.done = true;
+                this.proposalWizard.resultUrl = existing.bid_forms_url;
+                this.proposalWizard.certsUrl = existing.certs_url || null;
+                return;
+              }
             }
-          })
-        });
+          } catch(checkErr) { /* ignore — proceed to create new */ }
 
-        if (!createRes.ok) throw new Error('Failed to submit request: ' + createRes.status);
-        const createJson = await createRes.json();
-        const created = createJson.result || createJson;
-        const requestId = created.id;
-        if (!requestId) throw new Error('No request ID returned');
-        this.proposalWizard.pendingRequestId = requestId; // save so Try Again can re-poll
+          // Extract ref number from bid notes/title
+          const refMatch = (bid.notes || bid.scope_of_work || '').match(/([A-Z][A-Z0-9\/\-]+\/\d{4}-\d{4}\/\d+)/);
+          const refNumber = refMatch ? refMatch[1] : '';
+
+          // Route through saveBid backend function (uses asServiceRole — no auth issues)
+          const createRes = await fetch(API_BASE + '/functions/saveBid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-app-id': '69fd345c00eead7ea202264c' },
+            body: JSON.stringify({
+              action: 'createProposalRequest',
+              data: {
+                bid_id: bid.id || '',
+                bid_title: bid.title || '',
+                client_name: bid.client_name || '',
+                ref_number: refNumber || '',
+                bid_amount: parseFloat(bid.bid_amount) || 0,
+                currency: bid.currency || 'UGX',
+                deadline: bid.deadline || '',
+                scope_of_work: bid.scope_of_work || bid.title || '',
+                service_type: this.proposalWizard.serviceType || bid.service_type || 'Maintenance',
+                include_project_plan: this.proposalWizard.includeProjectPlan || false,
+                include_esg: this.proposalWizard.includeESG || false,
+                notes: this.proposalWizard.notes || '',
+                status: 'pending',
+                bid_forms_url: '',
+                certs_url: '',
+                error_message: ''
+              }
+            })
+          });
+
+          if (!createRes.ok) throw new Error('Failed to submit request: ' + createRes.status);
+          const createJson = await createRes.json();
+          const created = createJson.result || createJson;
+          requestId = created.id;  // assign to outer let — fixed scoping bug
+          if (!requestId) throw new Error('No request ID returned');
+          this.proposalWizard.pendingRequestId = requestId;
         } // end if(!requestId)
 
         this.proposalWizard.progress = 20;
